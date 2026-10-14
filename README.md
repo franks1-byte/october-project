@@ -10,3 +10,4 @@ Projects built from scratch by **John Francis**. Each folder has its own README 
 | [python-mini-git](python-mini-git) | Python | **git from scratch**: real git object & index formats. Passes `git fsck --strict`; status matches real git on 600 random edits |
 | [web-spreadsheet](web-spreadsheet) | JavaScript | **Spreadsheet app**: Excel-precedence formula parser, dependency graph with Tarjan's SCC recalculation, cycle detection, smart copy/paste |
 | [web-physics-sandbox](web-physics-sandbox) | JavaScript | **2D physics engine**: SAT collisions, sequential impulses with block solver, warm starting, joints. Stacks 120 boxes; tested against textbook formulas |
+| [python-sat-solver](python-sat-solver) | Python | **CDCL SAT solver**: watched literals, 1UIP learning, VSIDS, Luby restarts, DRAT proofs with an independent checker. Matches CaDiCaL; solves Sudoku and N-queens |
