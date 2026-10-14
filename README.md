@@ -9,3 +9,4 @@ Projects built from scratch by **John Francis**. Each folder has its own README 
 | [python-ember-crypt](python-ember-crypt) | Python, pygame | **Roguelike game**: BSP dungeons, shadowcasting torchlight, A* monsters, 8 floors and a Lich boss. Bot-tested over 100 full games |
 | [python-mini-git](python-mini-git) | Python | **git from scratch**: real git object & index formats. Passes `git fsck --strict`; status matches real git on 600 random edits |
 | [web-spreadsheet](web-spreadsheet) | JavaScript | **Spreadsheet app**: Excel-precedence formula parser, dependency graph with Tarjan's SCC recalculation, cycle detection, smart copy/paste |
+| [web-physics-sandbox](web-physics-sandbox) | JavaScript | **2D physics engine**: SAT collisions, sequential impulses with block solver, warm starting, joints. Stacks 120 boxes; tested against textbook formulas |
