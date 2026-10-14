@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FranzSheets</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #161a23; --grid: #262c3a; --head: #1b2030; --text: #e6e9f2; --muted: #8a93a8;
+    --accent: #4fd1c5; --accent2: #f6ad55; --sel: rgba(79, 209, 197, 0.16); --err: #fc8181;
+    --refs: #f6ad55, #b794f4, #68d391, #63b3ed, #f687b3;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f6f7fb; --panel: #ffffff; --grid: #dfe3ec; --head: #eef1f7; --text: #1f2430; --muted: #6b7385;
+            --accent: #0f9d8f; --accent2: #c05621; --sel: rgba(15, 157, 143, 0.12); --err: #c53030; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+               font: 14px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--panel);
+           border-bottom: 1px solid var(--grid); flex-wrap: wrap; }
+  h1 { font-size: 17px; margin: 0; letter-spacing: .04em; }
+  h1 span { color: var(--accent); }
+  .buttons { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+  button { background: transparent; color: var(--text); border: 1px solid var(--grid); border-radius: 6px;
+           padding: 5px 10px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  .fbar { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--grid); }
+  .fbar .name { width: 56px; text-align: center; font-weight: 600; color: var(--accent); font-family: ui-monospace, Consolas, monospace; }
+  .fbar .fx { color: var(--muted); font-style: italic; }
+  #formula { flex: 1; min-width: 0; background: var(--bg); color: var(--text); border: 1px solid var(--grid); border-radius: 6px;
+             padding: 6px 10px; font: 13px ui-monospace, Consolas, monospace; }
+  #formula:focus { outline: none; border-color: var(--accent); }
+  .wrap { flex: 1; overflow: auto; position: relative; }
+  table { border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+  th, td { border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid); height: 26px; padding: 0 6px;
+           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  th { background: var(--head); color: var(--muted); font-weight: 500; font-size: 12px; position: sticky; top: 0; z-index: 2; }
+  th.row { position: sticky; left: 0; z-index: 1; width: 44px; text-align: center; }
+  th.corner { left: 0; z-index: 3; width: 44px; }
+  td { width: 104px; max-width: 104px; cursor: cell; background: var(--panel); }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.err { color: var(--err); font-weight: 600; text-align: center; }
+  td.bool { text-align: center; color: var(--accent2); }
+  td.insel { background: var(--sel); }
+  td.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+  td.ref0 { box-shadow: inset 0 0 0 2px #f6ad55; } td.ref1 { box-shadow: inset 0 0 0 2px #b794f4; }
+  td.ref2 { box-shadow: inset 0 0 0 2px #68d391; } td.ref3 { box-shadow: inset 0 0 0 2px #63b3ed; }
+  td.ref4 { box-shadow: inset 0 0 0 2px #f687b3; }
+  th.hl { color: var(--accent); background: var(--sel); }
+  td.flash { animation: flash .6s ease-out; }
+  @keyframes flash { from { background: rgba(246, 173, 85, .45); } }
+  #editor { position: absolute; display: none; z-index: 5; border: 2px solid var(--accent); background: var(--bg); color: var(--text);
+            font: 13px ui-monospace, Consolas, monospace; padding: 0 5px; outline: none; }
+  footer { display: flex; gap: 18px; align-items: center; padding: 6px 16px; background: var(--panel); border-top: 1px solid var(--grid);
+           color: var(--muted); font-size: 12px; flex-wrap: wrap; }
+  footer b { color: var(--text); font-weight: 600; }
+  #chart { position: fixed; right: 18px; bottom: 44px; width: min(360px, calc(100vw - 36px)); background: var(--panel);
+           border: 1px solid var(--grid); border-radius: 10px; padding: 10px; display: none; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  #chart canvas { width: 100%; height: 180px; display: block; }
+  #chart .top { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .help { color: var(--muted); font-size: 12px; }
+  @media (max-width: 640px) { .help { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Franz<span>Sheets</span></h1>
+  <span class="help">Type to edit · Enter/Tab to move · Shift+arrows to select · Ctrl+C / Ctrl+V copy with smart references</span>
+  <div class="buttons">
+    <button id="sample">Load sample</button>
+    <button id="chartBtn">Chart selection</button>
+    <button id="csv">Export CSV</button>
+    <button id="clear">Clear</button>
+  </div>
+</header>
+<div class="fbar">
+  <div class="name" id="cellName">A1</div>
+  <span class="fx">fx</span>
+  <input id="formula" spellcheck="false" autocomplete="off" aria-label="Formula">
+</div>
+<div class="wrap" id="wrap">
+  <table id="grid"></table>
+  <input id="editor" spellcheck="false" autocomplete="off">
+</div>
+<footer>
+  <span id="stats"></span>
+  <span id="info" style="margin-left:auto"></span>
+</footer>
+<div id="chart"><div class="top"><span id="chartTitle">Selection</span><button id="chartClose">✕</button></div><canvas id="chartCanvas"></canvas></div>
+
+<script src="engine.js"></script>
+<script>
+(() => {
+  const { Sheet, keyOf, parseKey, colName, isErr, shiftFormula, COLS, ROWS, formatNumber } = window.SheetEngine;
+  const STORE = "franzsheets-v1";
+  let sheet = new Sheet();
+  try { const saved = localStorage.getItem(STORE); if (saved) sheet = Sheet.fromJSON(JSON.parse(saved)); } catch (e) { /* storage unavailable */ }
+
+  const grid = document.getElementById("grid"), wrap = document.getElementById("wrap");
+  const editor = document.getElementById("editor"), formula = document.getElementById("formula");
+  const tds = [];
+  let active = { r: 0, c: 0 }, anchor = { r: 0, c: 0 }, editing = false, clip = null;
+
+  // ---------------------------------------------------------------- build the grid
+  const head = grid.insertRow();
+  const corner = document.createElement("th"); corner.className = "corner"; head.appendChild(corner);
+  const colHeads = [];
+  for (let c = 0; c < COLS; c++) { const th = document.createElement("th"); th.textContent = colName(c); head.appendChild(th); colHeads.push(th); }
+  const rowHeads = [];
+  for (let r = 0; r < ROWS; r++) {
+    const tr = grid.insertRow();
+    const th = document.createElement("th"); th.className = "row"; th.textContent = r + 1; tr.appendChild(th); rowHeads.push(th);
+    tds.push([]);
+    for (let c = 0; c < COLS; c++) { const td = tr.insertCell(); td.dataset.r = r; td.dataset.c = c; tds[r].push(td); }
+  }
+
+  function paint(key, flash) {
+    const { r, c } = parseKey(key);
+    const td = tds[r][c], v = sheet.value(key);
+    td.textContent = sheet.display(key);
+    td.className = td.className.replace(/\b(num|err|bool)\b/g, "").trim();
+    if (isErr(v)) td.classList.add("err");
+    else if (typeof v === "number") td.classList.add("num");
+    else if (typeof v === "boolean") td.classList.add("bool");
+    if (flash) { td.classList.remove("flash"); void td.offsetWidth; td.classList.add("flash"); }
+  }
+  function paintAll() { for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) paint(keyOf(r, c)); }
+
+  // ---------------------------------------------------------------- selection
+  function selection() {
+    return { r1: Math.min(active.r, anchor.r), r2: Math.max(active.r, anchor.r), c1: Math.min(active.c, anchor.c), c2: Math.max(active.c, anchor.c) };
+  }
+  function refreshSelection() {
+    document.querySelectorAll("td.active, td.insel, th.hl").forEach((el) => el.classList.remove("active", "insel", "hl"));
+    document.querySelectorAll("td[class*=ref]").forEach((el) => el.className = el.className.replace(/\bref\d\b/g, "").trim());
+    const s = selection();
+    for (let r = s.r1; r <= s.r2; r++) for (let c = s.c1; c <= s.c2; c++) tds[r][c].classList.add("insel");
+    tds[active.r][active.c].classList.add("active");
+    for (let c = s.c1; c <= s.c2; c++) colHeads[c].classList.add("hl");
+    for (let r = s.r1; r <= s.r2; r++) rowHeads[r].classList.add("hl");
+    const key = keyOf(active.r, active.c);
+    document.getElementById("cellName").textContent = s.r1 === s.r2 && s.c1 === s.c2 ? key : keyOf(s.r1, s.c1) + ":" + keyOf(s.r2, s.c2);
+    if (!editing) formula.value = sheet.raw(key);
+    highlightRefs(sheet.raw(key));
+    updateStats();
+  }
+  function highlightRefs(raw) {             // color the cells the current formula reads, like Excel
+    if (!raw.startsWith("=")) return;
+    const re = /\$?([A-Z])\$?(\d+)(?::\$?([A-Z])\$?(\d+))?/gi;
+    let m, n = 0;
+    const body = raw.replace(/"[^"]*"/g, "");
+    while ((m = re.exec(body)) && n < 5) {
+      const before = body[m.index - 1];
+      if (before && /[A-Za-z0-9_]/.test(before)) continue;
+      const c1 = m[1].toUpperCase().charCodeAt(0) - 65, r1 = +m[2] - 1;
+      const c2 = m[3] ? m[3].toUpperCase().charCodeAt(0) - 65 : c1, r2 = m[4] ? +m[4] - 1 : r1;
+      for (let r = Math.min(r1, r2); r <= Math.max(r1, r2) && r < ROWS; r++)
+        for (let c = Math.min(c1, c2); c <= Math.max(c1, c2); c++) if (r >= 0) tds[r][c].classList.add("ref" + n);
+      n++;
+    }
+  }
+  function updateStats() {
+    const s = selection(), nums = [];
+    let count = 0;
+    for (let r = s.r1; r <= s.r2; r++) for (let c = s.c1; c <= s.c2; c++) {
+      const v = sheet.value(keyOf(r, c));
+      if (v !== null && v !== "") count++;
+      if (typeof v === "number") nums.push(v);
+    }
+    const fmt = (x) => formatNumber(Math.round(x * 1e6) / 1e6);
+    document.getElementById("stats").innerHTML = nums.length
+      ? `Sum <b>${fmt(nums.reduce((a, b) => a + b, 0))}</b> · Average <b>${fmt(nums.reduce((a, b) => a + b, 0) / nums.length)}</b> · Min <b>${fmt(Math.min(...nums))}</b> · Max <b>${fmt(Math.max(...nums))}</b> · Count <b>${count}</b>`
+      : count ? `Count <b>${count}</b>` : "";
+  }
+  function move(dr, dc, extend) {
+    active = { r: Math.min(ROWS - 1, Math.max(0, active.r + dr)), c: Math.min(COLS - 1, Math.max(0, active.c + dc)) };
+    if (!extend) anchor = { ...active };
+    refreshSelection();
+    tds[active.r][active.c].scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+
+  // ---------------------------------------------------------------- editing
+  function commit(r, c, raw) {
+    const changed = sheet.set(keyOf(r, c), raw);
+    changed.forEach((k) => paint(k, k !== keyOf(r, c)));
+    paint(keyOf(r, c));
+    save();
+    document.getElementById("info").textContent = `${changed.length} cell${changed.length === 1 ? "" : "s"} recalculated`;
+  }
+  function startEdit(initial) {
+    const td = tds[active.r][active.c];
+    editing = true;
+    editor.style.display = "block";
+    editor.style.left = td.offsetLeft + "px"; editor.style.top = td.offsetTop + "px";
+    editor.style.width = Math.max(td.offsetWidth, 160) + "px"; editor.style.height = td.offsetHeight + "px";
+    editor.value = initial !== undefined ? initial : sheet.raw(keyOf(active.r, active.c));
+    formula.value = editor.value;
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+  }
+  function stopEdit(save) {
+    if (!editing) return;
+    editing = false;
+    editor.style.display = "none";
+    if (save) commit(active.r, active.c, editor.value);
+    wrap.focus({ preventScroll: true });
+    refreshSelection();
+  }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(sheet.toJSON())); } catch (e) { /* ignore */ } }
+
+  editor.addEventListener("input", () => { formula.value = editor.value; });
+  editor.addEventListener("keydown", (e) => {
+    if (["Enter", "Tab", "Escape"].includes(e.key)) e.stopPropagation();   // don't let the grid see this key too
+    if (e.key === "Enter") { e.preventDefault(); stopEdit(true); move(e.shiftKey ? -1 : 1, 0); }
+    else if (e.key === "Tab") { e.preventDefault(); stopEdit(true); move(0, e.shiftKey ? -1 : 1); }
+    else if (e.key === "Escape") { stopEdit(false); }
+  });
+  formula.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); commit(active.r, active.c, formula.value); wrap.focus(); move(1, 0); }
+    else if (e.key === "Escape") { formula.value = sheet.raw(keyOf(active.r, active.c)); wrap.focus(); }
+  });
+
+  wrap.tabIndex = 0;
+  wrap.addEventListener("keydown", (e) => {
+    if (editing) return;
+    const k = e.key, ctrl = e.ctrlKey || e.metaKey;
+    const arrows = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+    if (arrows[k]) { e.preventDefault(); move(...arrows[k], e.shiftKey); }
+    else if (k === "Enter" || k === "F2") { e.preventDefault(); startEdit(); }
+    else if (k === "Tab") { e.preventDefault(); move(0, e.shiftKey ? -1 : 1); }
+    else if (k === "Delete" || k === "Backspace") {
+      e.preventDefault();
+      const s = selection();
+      for (let r = s.r1; r <= s.r2; r++) for (let c = s.c1; c <= s.c2; c++) commit(r, c, "");
+      refreshSelection();
+    }
+    else if (ctrl && k.toLowerCase() === "c") { e.preventDefault(); copy(); }
+    else if (ctrl && k.toLowerCase() === "v") { e.preventDefault(); paste(); }
+    else if (!ctrl && !e.altKey && k.length === 1) { e.preventDefault(); startEdit(k); }
+  });
+
+  // ---------------------------------------------------------------- copy / paste with relative references
+  function copy() {
+    const s = selection(), cells = [];
+    for (let r = s.r1; r <= s.r2; r++) { const row = []; for (let c = s.c1; c <= s.c2; c++) row.push(sheet.raw(keyOf(r, c))); cells.push(row); }
+    clip = { r: s.r1, c: s.c1, cells };
+    try { navigator.clipboard.writeText(cells.map((row) => row.join("\t")).join("\n")).catch(() => {}); } catch (e) { /* no clipboard */ }
+    document.getElementById("info").textContent = `Copied ${cells.length}×${cells[0].length}`;
+  }
+  function paste() {
+    if (!clip) return;
+    const dr = active.r - clip.r, dc = active.c - clip.c;
+    clip.cells.forEach((row, i) => row.forEach((raw, j) => {
+      const r = active.r + i, c = active.c + j;
+      if (r < ROWS && c < COLS) commit(r, c, shiftFormula(raw, dr, dc));
+    }));
+    anchor = { ...active };
+    active = { r: Math.min(ROWS - 1, active.r + clip.cells.length - 1), c: Math.min(COLS - 1, active.c + clip.cells[0].length - 1) };
+    [active, anchor] = [anchor, active];
+    refreshSelection();
+  }
+
+  // ---------------------------------------------------------------- mouse
+  let dragging = false;
+  grid.addEventListener("mousedown", (e) => {
+    const td = e.target.closest("td");
+    if (!td) return;
+    if (editing) stopEdit(true);
+    active = { r: +td.dataset.r, c: +td.dataset.c };
+    if (!e.shiftKey) anchor = { ...active };
+    dragging = true;
+    refreshSelection();
+    wrap.focus({ preventScroll: true });
+    e.preventDefault();
+  });
+  grid.addEventListener("mouseover", (e) => {
+    const td = e.target.closest("td");
+    if (dragging && td) { active = { r: +td.dataset.r, c: +td.dataset.c }; refreshSelection(); }
+  });
+  window.addEventListener("mouseup", () => { dragging = false; });
+  grid.addEventListener("dblclick", (e) => { if (e.target.closest("td")) startEdit(); });
+
+  // ---------------------------------------------------------------- buttons
+  document.getElementById("clear").onclick = () => { sheet = new Sheet(); save(); paintAll(); refreshSelection(); };
+  document.getElementById("csv").onclick = () => {
+    const blob = new Blob([sheet.toCSV()], { type: "text/csv" });
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "franzsheets.csv" });
+    a.click();
+  };
+  document.getElementById("sample").onclick = () => {
+    sheet = new Sheet();
+    const data = [
+      ["Student", "Quiz 1", "Quiz 2", "Exam", "Average", "Grade", "Passed?"],
+      ["Andrea", 92, 88, 95], ["Brix", 75, 81, 70], ["Carlo", 98, 94, 99], ["Dianne", 64, 70, 58],
+      ["Enzo", 85, 79, 88], ["Faith", 71, 90, 83], ["Gab", 88, 85, 91], ["Hannah", 59, 62, 66],
+    ];
+    data.forEach((row, r) => row.forEach((v, c) => sheet.set(keyOf(r, c), String(v))));
+    for (let r = 1; r < data.length; r++) {
+      const n = r + 1;
+      sheet.set(keyOf(r, 4), `=ROUND(B${n}*0.25+C${n}*0.25+D${n}*0.5, 1)`);
+      sheet.set(keyOf(r, 5), `=IF(E${n}>=90,"A",IF(E${n}>=80,"B",IF(E${n}>=70,"C",IF(E${n}>=60,"D","F"))))`);
+      sheet.set(keyOf(r, 6), `=E${n}>=60`);
+    }
+    const last = data.length;
+    sheet.set(keyOf(last + 1, 0), "Class average"); sheet.set(keyOf(last + 1, 4), `=ROUND(AVERAGE(E2:E${last}), 2)`);
+    sheet.set(keyOf(last + 2, 0), "Highest"); sheet.set(keyOf(last + 2, 4), `=MAX(E2:E${last})`);
+    sheet.set(keyOf(last + 3, 0), "Passed"); sheet.set(keyOf(last + 3, 4), `=COUNTIF(E2:E${last},">=60") & " of " & COUNT(E2:E${last})`);
+    sheet.set(keyOf(last + 4, 0), "A students"); sheet.set(keyOf(last + 4, 4), `=COUNTIF(F2:F${last},"A")`);
+    sheet.set("I1", "Try: edit D4");
+    save(); paintAll();
+    active = { r: 1, c: 4 };
+    anchor = { r: 8, c: 4 };
+    refreshSelection();
+  };
+  // ---------------------------------------------------------------- chart
+  const chart = document.getElementById("chart"), canvas = document.getElementById("chartCanvas");
+  document.getElementById("chartClose").onclick = () => { chart.style.display = "none"; };
+  document.getElementById("chartBtn").onclick = drawChart;
+  function drawChart() {
+    const s = selection(), bars = [];
+    for (let r = s.r1; r <= s.r2; r++) for (let c = s.c1; c <= s.c2; c++) {
+      const v = sheet.value(keyOf(r, c));
+      if (typeof v === "number") {
+        const label = s.c1 > 0 ? sheet.display(keyOf(r, 0)) : keyOf(r, c);
+        bars.push({ v, label: s.c1 === s.c2 && s.c1 > 0 ? label : keyOf(r, c) });
+      }
+    }
+    chart.style.display = "block";
+    document.getElementById("chartTitle").textContent = bars.length ? `${bars.length} values` : "Select some numbers first";
+    const dpr = window.devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    const g = canvas.getContext("2d");
+    g.scale(dpr, dpr);
+    g.clearRect(0, 0, W, H);
+    if (!bars.length) return;
+    const css = getComputedStyle(document.documentElement);
+    const max = Math.max(...bars.map((b) => b.v), 0), min = Math.min(...bars.map((b) => b.v), 0);
+    const usable = H - 44, span = max - min || 1, bw = (W - 10) / bars.length, base = 20 + usable * max / span;
+    bars.forEach((b, i) => {
+      const h = usable * Math.abs(b.v) / span, x = 5 + i * bw + bw * 0.15;
+      g.fillStyle = css.getPropertyValue("--accent").trim();
+      g.fillRect(x, b.v >= 0 ? base - h : base, bw * 0.7, h);
+      g.fillStyle = css.getPropertyValue("--muted").trim();
+      g.font = "11px system-ui"; g.textAlign = "center";
+      g.fillText(b.label.slice(0, 7), x + bw * 0.35, H - 6);
+      g.fillStyle = css.getPropertyValue("--text").trim();
+      g.fillText(formatNumber(Math.round(b.v * 100) / 100), x + bw * 0.35, b.v >= 0 ? base - h - 4 : base + h + 12);
+    });
+  }
+
+  paintAll();
+  refreshSelection();
+  wrap.focus();
+  window.__sheet = () => sheet;       // used by the browser tests
+})();
+</script>
+</body>
+</html>
